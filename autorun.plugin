@@ -1,0 +1,70 @@
+
+import logging
+from empire.server.api.v2.agent.agent_task_dto import ShellPostRequest
+from empire.server.core.hooks import hooks
+from empire.server.common.plugins import Plugin
+
+log = logging.getLogger(__name__)
+
+# anything you simply write out (like a script) will run immediately when the
+# module is imported (before the class is instantiated)
+log.info("autorun plugin loaded")
+
+
+# this class MUST be named Plugin
+class Plugin(Plugin):
+    def onLoad(self):
+        self.info = {
+            "Name": "AutoRun",
+            # List of one or more authors for the plugin
+            "Authors": [
+                {
+                    "Name": "Hubbl3",
+                    "Handle": "@Hubbl3",
+                    "Link": "https://github.com/hubbl3",
+                }
+            ],
+
+            "Description": ("Auto runs a shell command on an agent on checkin"),
+            "Software": "",
+            "Techniques": [],
+            "Comments": [],
+        }
+
+        # Any options needed by the plugin, settable during runtime
+        self.options = {
+            # Format:
+            #   value_name : {description, required, default_value}
+            "Shell Command": {
+                # The 'Agent' option is the only one that MUST be in a module
+                "Description": "Shell Command to run on Agent check in",
+                "Required": True,
+                "Value": "start",
+            }
+        }
+        hooks.register_hook(hooks.AFTER_AGENT_CHECKIN_HOOK, 'checkin_autorun_hook', self.autorun)
+
+    def execute(self, command):
+        """
+        Do nothing since execution is triggered by hook
+        """
+            return True
+
+    def register(self, mainMenu):
+        """
+        Any modifications to the mainMenu go here - e.g.
+        registering functions to be run by user commands
+        """
+        self.installPath = mainMenu.installPath
+        self.main_menu = mainMenu
+
+    def autorun(db: Session, agent: models.Agent):
+        shell_post_request = ShellPostRequest(self.options["Shell Command"])
+        
+
+    def shutdown(self):
+        """
+        Kills additional processes that were spawned
+        """
+        # If the plugin spawns a process provide a shutdown method for when Empire exits else leave it as pass
+        pass
