@@ -42,13 +42,15 @@ class Plugin(Plugin):
                 "Value": "start",
             }
         }
+        
         hooks.register_hook(hooks.AFTER_AGENT_CHECKIN_HOOK, 'checkin_autorun_hook', self.autorun)
 
-    def execute(self, command):
+    def execute(self, command, **kwargs)):
         """
         Do nothing since execution is triggered by hook
         """
-            return True
+        self.user = kwargs["user"]   
+        return True
 
     def register(self, mainMenu):
         """
@@ -57,10 +59,10 @@ class Plugin(Plugin):
         """
         self.installPath = mainMenu.installPath
         self.main_menu = mainMenu
-
+ 
     def autorun(db: Session, agent: models.Agent):
-        shell_post_request = ShellPostRequest(self.options["Shell Command"])
-        
+        shell_post_request = ShellPostRequest(self.options["Shell Command"], True)
+        res, err = self.main_menu.agenttasksv2.create_task_shell(shell_post_request, agent, db, self.user)
 
     def shutdown(self):
         """
