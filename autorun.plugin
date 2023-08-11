@@ -1,6 +1,6 @@
-
 import logging
-from empire.server.api.v2.agent.agent_task_dto import ShellPostRequest
+from sqlalchemy.orm import Session
+from empire.server.core.db import models
 from empire.server.core.hooks import hooks
 from empire.server.common.plugins import Plugin
 
@@ -24,7 +24,6 @@ class Plugin(Plugin):
                     "Link": "https://github.com/hubbl3",
                 }
             ],
-
             "Description": ("Auto runs a shell command on an agent on checkin"),
             "Software": "",
             "Techniques": [],
@@ -39,18 +38,21 @@ class Plugin(Plugin):
                 # The 'Agent' option is the only one that MUST be in a module
                 "Description": "Shell Command to run on Agent check in",
                 "Required": True,
-                "Value": "start",
+                "Value": "ps",
             }
         }
-        
-        hooks.register_hook(hooks.AFTER_AGENT_CHECKIN_HOOK, 'checkin_autorun_hook', self.autorun)
 
-    def execute(self, command, **kwargs)):
+        self.hook_name = "checkin_autorun_hook"
+
+        hooks.register_hook(
+            hooks.AFTER_AGENT_CHECKIN_HOOK, self.hook_name, self.autorun
+        )
+
+    def execute(self, command, **kwargs):
         """
         Do nothing since execution is triggered by hook
         """
-        self.user = kwargs["user"]   
-        return True
+        self.options["Shell Command"]["Value"] = command["Shell Command"]
 
     def register(self, mainMenu):
         """
@@ -59,14 +61,17 @@ class Plugin(Plugin):
         """
         self.installPath = mainMenu.installPath
         self.main_menu = mainMenu
- 
-    def autorun(db: Session, agent: models.Agent):
-        shell_post_request = ShellPostRequest(self.options["Shell Command"], True)
-        res, err = self.main_menu.agenttasksv2.create_task_shell(shell_post_request, agent, db, self.user)
+
+    def autorun(self, db: Session, agent: models.Agent):
+        res, err = self.main_menu.agenttasksv2.create_task_shell(
+            db, agent, self.options["Shell Command"]["Value"], True
+        )
+
+        if err:
+            log.error(f"Failed to create task: {err}")
 
     def shutdown(self):
         """
         Kills additional processes that were spawned
         """
-        # If the plugin spawns a process provide a shutdown method for when Empire exits else leave it as pass
-        pass
+        hooks.unregister_hook(hooks.AFTER_AGENT_CHECKIN_HOOK, self.hook_name)
